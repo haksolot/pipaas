@@ -1,32 +1,26 @@
 import Database from "better-sqlite3";
-import { config } from "./index";
 import fs from "fs";
 import path from "path";
+import { ENV } from "./env";
 
-const dbDir = path.dirname(config.sqliteFile);
+const dbDir = path.dirname(ENV.DB_PATH);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const db: Database.Database = new Database(config.sqliteFile);
+const db: Database.Database = new Database(ENV.DB_PATH);
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS projects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE,
-    description TEXT,
-    folder_name TEXT UNIQUE,
-    path TEXT,
-    url TEXT,
-    is_static INTEGER,
-    package_json_path TEXT,
-    default_script TEXT,
-    scripts TEXT,
-    env TEXT, 
-    created_at TEXT
-  )
-`);
+db.prepare(`
+CREATE TABLE IF NOT EXISTS services (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    repo_url TEXT NOT NULL,
+    repo_path TEXT NOT NULL,
+    start_command TEXT NOT NULL,
+    env_vars TEXT,
+    is_static INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`).run();
 
-
-
-export { db };
+export default db;

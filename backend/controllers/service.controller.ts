@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import db from "../config/db";
 import { createProject, CreateProjectInput, Project, deleteProject, ProjectRow } from "../services/service.service";
-import { startProject, stopProject, restartProject } from "../services/pm2.service";
+import { startProject, stopProject, restartProject, getPM2Metrics } from "../services/pm2.service";
 
 export async function createProjectController(req: Request, res: Response): Promise<void> {
     try {
@@ -64,4 +64,14 @@ export async function restartProjectController(req: Request, res: Response) {
         console.error(err);
         res.status(500).json({ error: "Failed to restart project" });
     }
+}
+
+export async function metricsController(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const metrics = await getPM2Metrics(id!);
+    res.status(200).json(metrics);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
 }

@@ -72,3 +72,57 @@ export async function deleteProjectPM2(id: string): Promise<void> {
     });
   });
 }
+
+interface Monit {
+  cpu: number;
+  memory: number;
+}
+
+export function getPM2Metrics(id: string): Promise<Monit> {
+  return new Promise((resolve, reject) => {
+    pm2.describe(`${ENV.PM2_NAMESPACE}-${id}`, (err, processDescription) => {
+      if (err) return reject(err);
+      if (!processDescription || !processDescription[0]) {
+        return reject(new Error("Process not found"));
+      }
+
+      const monit = processDescription[0].monit as Monit | undefined;
+      if (!monit) {
+        return reject(new Error("Metrics not available"));
+      }
+
+      resolve({
+        cpu: monit.cpu,
+        memory: monit.memory,
+      });
+    });
+  });
+}
+
+interface PM2LogPacket {
+  process: {
+    name: string;
+    pm_id: number;
+  };
+  data: Buffer | string;
+}
+
+export function streamPM2Logs(id: string, onData: (log: string) => void): void {
+  pm2.launchBus((err, bus) => {
+    if (err) throw err;
+
+    const appName = `${ENV.PM2_NAMESPACE}-${id}`;
+
+    bus.on("log:out", (packet: PM2LogPacket) => {
+      if (packet.process.name === appName) {
+        onData(packet.data.toString());
+      }
+    });
+
+    bus.on("log:err", (packet: PM2LogPacket) => {
+      if (packet.process.name === appName) {
+        onData(packet.data.toString());
+      }
+    });
+  });
+}

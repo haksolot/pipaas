@@ -1,6 +1,8 @@
 import pm2 from "pm2";
 import { ENV } from "../config/env";
 import path from "path";
+import http from "http";
+import handler from "serve-handler";
 
 export function connectPM2(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -18,29 +20,67 @@ export function disconnectPM2(): void {
 export async function startProject(
   id: string,
   repoPath: string,
-  startCommand: string,
+  startCommand?: string,
   envVars?: Record<string, string>,
   isStatic = false
 ): Promise<void> {
-  const script = startCommand.split(" ")[0];
-  if (!script) throw new Error("Invalid start command");
+  const serviceName = `${ENV.PM2_NAMESPACE}-${id}`;
+  const cwd = path.resolve(repoPath);
 
   return new Promise((resolve, reject) => {
-    pm2.start(
-      {
-        name: `${ENV.PM2_NAMESPACE}-${id}`,
-        cwd: repoPath,
-        script,
-        args: startCommand.split(" ").slice(1),
-        env: envVars || {},
-        exec_mode: "fork",
-        autorestart: true,
-      },
-      (err) => {
-        if (err) return reject(err);
-        resolve();
+    pm2.connect((err) => {
+      if (err) return reject(err);
+
+      if (isStatic) {
+        const port = Number(envVars?.PORT) || 3000;
+
+        pm2.start(
+          {
+            name: serviceName,
+            cwd,
+            script: path.resolve(__dirname, "./static-server.ts"),
+            interpreter: "node",
+            env: {
+              ...envVars,
+              PORT: String(port),
+              STATIC_DIR: cwd,
+            },
+            exec_mode: "fork",
+            autorestart: true,
+          },
+          (errStart) => {
+            pm2.disconnect();
+            if (errStart) return reject(errStart);
+            resolve();
+          }
+        );
+      } else {
+        if (!startCommand || startCommand.trim() === "") {
+          pm2.disconnect();
+          return reject(new Error("Invalid start command"));
+        }
+
+        const script = startCommand?.split(" ")[0] ?? "";
+        const args = startCommand.split(" ").slice(1);
+
+        pm2.start(
+          {
+            name: serviceName,
+            cwd,
+            script,
+            args,
+            env: envVars || {},
+            exec_mode: "fork",
+            autorestart: true,
+          },
+          (errStart) => {
+            pm2.disconnect();
+            if (errStart) return reject(errStart);
+            resolve();
+          }
+        );
       }
-    );
+    });
   });
 }
 
@@ -72,6 +112,25 @@ export async function deleteProjectPM2(id: string): Promise<void> {
     });
   });
 }
+
+export async function removeService(id: string) {
+  return new Promise<void>((resolve, reject) => {
+    pm2.connect(async (err) => {
+      if (err) return reject(err);
+
+      try {
+        await deleteProjectPM2(id);
+      } catch (e) {
+        pm2.disconnect();
+        return reject(e);
+      }
+
+      pm2.disconnect(); 
+      resolve();
+    });
+  });
+}
+
 
 interface Monit {
   cpu: number;

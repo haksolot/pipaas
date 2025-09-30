@@ -1,4 +1,6 @@
 import { WebSocketServer } from "ws";
+// import WebSocket, { WebSocketServer } from "ws";
+
 import { streamPM2Logs, getPM2Metrics } from "../services/pm2.service";
 
 export function setupPM2WebSocket(server: any) {

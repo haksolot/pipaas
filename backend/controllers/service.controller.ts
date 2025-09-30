@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import db from "../config/db";
-import { createProject, CreateProjectInput, Project, deleteProject, ProjectRow } from "../services/service.service";
-import { startProject, stopProject, restartProject, getPM2Metrics } from "../services/pm2.service";
+import db from "../config/db.ts";
+import { createProject, CreateProjectInput, Project, deleteProject, ProjectRow, listServices } from "../services/service.service";
+import { startProject, stopProject, restartProject, getPM2Metrics, streamPM2Logs } from "../services/pm2.service";
 
 export async function createProjectController(req: Request, res: Response): Promise<void> {
     try {
@@ -71,6 +71,36 @@ export async function metricsController(req: Request, res: Response) {
     const { id } = req.params;
     const metrics = await getPM2Metrics(id!);
     res.status(200).json(metrics);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+}
+
+export function getServiceLogs(req: Request, res: Response) {
+  const { id } = req.params;
+  if (!id) {
+    return res.status(400).json({ error: "Missing service id" });
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  res.write(`event: ping\ndata: connected to logs of ${id}\n\n`);
+
+  streamPM2Logs(id, (log) => {
+    res.write(`event: log\ndata: ${JSON.stringify({ serviceId: id, log })}\n\n`);
+  });
+
+  req.on("close", () => {
+    res.end();
+  });
+}
+
+export async function getAllServices(req: Request, res: Response) {
+  try {
+    const services = await listServices();
+    res.json(services);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

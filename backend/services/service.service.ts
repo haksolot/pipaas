@@ -5,7 +5,8 @@ import { cloneRepo } from "./git.service";
 import fs from "fs";
 import path from "path";
 import pm2 from "pm2";
-import { stopProject } from "./pm2.service";
+import { ENV } from "../config/env";
+import { stopProject, deleteProjectPM2 } from "./pm2.service";
 
 export interface CreateProjectInput {
   name: string;
@@ -32,13 +33,14 @@ export interface Project extends CreateProjectInput {
 }
 
 export interface ServiceInfo {
-  id: string;
+  id: number;
   name: string;
   status: "online" | "stopped" | "errored" | "unknown";
-  cpu?: number;
-  memory?: number;
-  port?: string;
-  repoPath?: string;
+  cpu: number;
+  memory: number;
+  // port: number;
+  env_vars: string;
+  repoPath: string;
   isStatic: boolean;
 }
 
@@ -75,6 +77,7 @@ export async function deleteProject(id: string): Promise<void> {
   }
 
   await stopProject(id);
+  await deleteProjectPM2(id);
 
   if (fs.existsSync(project.repo_path)) {
     fs.rmSync(project.repo_path, { recursive: true, force: true });
@@ -101,9 +104,9 @@ export async function listServices(): Promise<ServiceInfo[]> {
           status:
             (pm2proc?.pm2_env?.status as "online" | "stopped" | "errored") ??
             "unknown",
-          cpu: pm2proc?.monit?.cpu,
-          memory: pm2proc?.monit?.memory,
-          port: svc.envVars?.PORT,
+          cpu: pm2proc?.monit?.cpu ?? 0,
+          memory: pm2proc?.monit?.memory ?? 0,
+          env_vars: svc.env_vars ?? "",
           repoPath: svc.repo_path,
           isStatic: !!svc.isStatic,
         };

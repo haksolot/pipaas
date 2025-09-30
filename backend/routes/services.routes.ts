@@ -6,6 +6,8 @@ import {
   stopProjectController,
   restartProjectController,
   metricsController,
+  getServiceLogs,
+  getAllServices
 } from "../controllers/service.controller";
 
 const router: Router = Router();
@@ -17,6 +19,8 @@ router.post("/:id/start", startProjectController);
 router.post("/:id/stop", stopProjectController);
 router.post("/:id/restart", restartProjectController);
 
-router.get("/:id/metrics", metricsController);
+router.get("/", getAllServices);
+router.get("/:id/metrics", getServiceLogs);
+router.get("/:id/logs", getServiceLogs);
 
 export default router;

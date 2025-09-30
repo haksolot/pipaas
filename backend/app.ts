@@ -11,6 +11,6 @@ app.use(express.json());
 
 app.use("/api", routes);
 
-setupPM2WebSocket(app);
+// setupPM2WebSocket(app);
 
 export default app;

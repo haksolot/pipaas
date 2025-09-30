@@ -1,12 +1,17 @@
 import { v4 as uuidv4 } from "uuid";
 // import db from "../config/db";
 import db from "../config/db";
-import { cloneRepo } from "./git.service";
+import { cloneRepo, pullRepo } from "./git.service";
 import fs from "fs";
 import path from "path";
 import pm2 from "pm2";
 import { ENV } from "../config/env";
-import { stopProject, deleteProjectPM2 } from "./pm2.service";
+import {
+  startProject,
+  restartProject,
+  stopProject,
+  deleteProjectPM2,
+} from "./pm2.service";
 
 export interface CreateProjectInput {
   name: string;
@@ -44,6 +49,12 @@ export interface ServiceInfo {
   isStatic: boolean;
 }
 
+export interface UpdateServiceData {
+  name?: string;
+  startCommand?: string;
+  envVars?: Record<string, string>;
+}
+
 export async function createProject(
   input: CreateProjectInput
 ): Promise<Project> {
@@ -64,6 +75,14 @@ export async function createProject(
     env_vars: input.envVars ? JSON.stringify(input.envVars) : null,
     is_static: input.isStatic ? 1 : 0,
   });
+
+  await startProject(
+    id,
+    repoPath,
+    input.startCommand,
+    input.envVars || {},
+    input.isStatic
+  );
 
   return { id, repoPath, ...input };
 }
@@ -108,11 +127,84 @@ export async function listServices(): Promise<ServiceInfo[]> {
           memory: pm2proc?.monit?.memory ?? 0,
           env_vars: svc.env_vars ?? "",
           repoPath: svc.repo_path,
-          isStatic: !!svc.isStatic,
+          isStatic: !!svc.is_static,
         };
       });
 
       resolve(result);
     });
   });
+}
+
+export function editService(id: string, data: UpdateServiceData): void {
+  const service = db.prepare("SELECT * FROM services WHERE id = ?").get(id);
+  if (!service) throw new Error("Service not found");
+
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (data.name !== undefined) {
+    updates.push("name = ?");
+    values.push(data.name);
+  }
+
+  if (data.startCommand !== undefined) {
+    updates.push("start_command = ?");
+    values.push(data.startCommand);
+  }
+
+  if (data.envVars !== undefined) {
+    updates.push("env_vars = ?");
+    values.push(JSON.stringify(data.envVars));
+  }
+
+  if (updates.length === 0) {
+    return;
+  }
+
+  values.push(id);
+
+  const sql = `UPDATE services SET ${updates.join(", ")} WHERE id = ?`;
+  db.prepare(sql).run(...values);
+}
+
+interface Service {
+  id: string;
+  repoPath: string;
+  startCommand: string;
+  envVars: Record<string, string>;
+  isStatic: boolean;
+}
+
+interface ServiceRow {
+  id: string;
+  repo_path: string;
+  start_command: string;
+  env_vars: string | null;
+  is_static: number;
+}
+
+export async function updateService(id: string): Promise<void> {
+  const row = db.prepare("SELECT * FROM services WHERE id = ?").get(id) as ServiceRow;
+  if (!row) throw new Error("Service not found");
+
+  const service: Service = {
+    id: row.id,
+    repoPath: row.repo_path,
+    startCommand: row.start_command,
+    envVars: row.env_vars ? JSON.parse(row.env_vars) : {},
+    isStatic: Boolean(row.is_static),
+  };
+
+  await stopProject(id);
+
+  await pullRepo(service.repoPath);
+
+  await startProject(
+    service.id,
+    service.repoPath,
+    service.startCommand || "",
+    service.envVars,
+    service.isStatic
+  );
 }

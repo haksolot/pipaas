@@ -52,7 +52,8 @@ export const columns = (
   onActionDone?: (params: {
     serviceName: string;
     action: "start" | "restart" | "stop";
-  }) => void
+  }) => void,
+  onEdit?: (service: Service) => void
 ): ColumnDef<Service>[] => [
   {
     accessorKey: "name",
@@ -145,7 +146,7 @@ export const columns = (
           <Button variant="ghost" size="icon" className="cursor-pointer">
             <Eye className="h-4 w-4" />
           </Button>
-          <EditServiceDialog service={service}>
+          <EditServiceDialog service={service} onEdited={onEdit ?? (() => {})}>
             <Button variant="ghost" size="icon" className="cursor-pointer">
               <Pencil className="h-4 w-4 " />
             </Button>

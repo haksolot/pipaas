@@ -50,6 +50,12 @@ export function ServicesPage() {
     }
   };
 
+  const handleServiceEdited = (updatedService: Service) => {
+    setData((prev) =>
+      prev.map((service) => (service.id === updatedService.id ? updatedService : service))
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -75,7 +81,7 @@ export function ServicesPage() {
         <DataTable
           columns={columns((id) => {
             setData((prev) => prev.filter((s) => s.id !== id));
-          }, handleActionDone)}
+          }, handleActionDone, handleServiceEdited)}
           data={data}
         />
       )}

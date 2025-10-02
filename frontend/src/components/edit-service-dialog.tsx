@@ -18,9 +18,11 @@ import { updateService } from "@/services/projectService";
 export function EditServiceDialog({
   service,
   children,
+  onEdited,
 }: {
   service: Service;
   children: React.ReactNode;
+  onEdited: (updatedService: Service) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(service.name);
@@ -88,6 +90,7 @@ export function EditServiceDialog({
 
     try {
       await updateService(updatedService);
+      onEdited(updatedService);
       console.log("Service updated :", updatedService);
       setOpen(false);
     } catch (err: any) {

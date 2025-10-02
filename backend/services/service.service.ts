@@ -51,8 +51,8 @@ export interface ServiceInfo {
 
 export interface UpdateServiceData {
   name?: string;
-  startCommand?: string;
-  envVars?: Record<string, string>;
+  start_command?: string;
+  env_vars?: Record<string, string>;
 }
 
 export async function createProject(
@@ -128,6 +128,8 @@ export async function listServices(): Promise<ServiceInfo[]> {
           env_vars: svc.env_vars ?? "",
           repoPath: svc.repo_path,
           isStatic: !!svc.is_static,
+          start_command: svc.start_command,
+          created_at: svc.created_at
         };
       });
 
@@ -148,14 +150,14 @@ export function editService(id: string, data: UpdateServiceData): void {
     values.push(data.name);
   }
 
-  if (data.startCommand !== undefined) {
+  if (data.start_command !== undefined) {
     updates.push("start_command = ?");
-    values.push(data.startCommand);
+    values.push(data.start_command);
   }
 
-  if (data.envVars !== undefined) {
+  if (data.env_vars !== undefined) {
     updates.push("env_vars = ?");
-    values.push(JSON.stringify(data.envVars));
+    values.push(JSON.stringify(data.env_vars));
   }
 
   if (updates.length === 0) {
